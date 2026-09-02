@@ -1,36 +1,34 @@
-# exportify.app to tidal playlist port utility  app
+# exportify.app to tidal playlist port utility app
 
-Port Spotify playlists into Tidal from an [Exportify](https://exportify.app/) CSV,
-matching on ISRC first with a scored text-search fallback.
+Ports Spotify playlists into Tidal from an [Exportify](https://exportify.app/)
+CSV, matching on ISRC first with a scored text-search fallback.
 
-Built for a recurring problem: people send me Spotify playlists, I use Tidal.
-Nothing is ever silently substituted — a track that can't be matched confidently
-goes to a sidecar CSV so you can see the gap rather than discover a wrong
-recording six months later.
+Nothing is silently substituted. A track that cannot be matched confidently is
+written to a sidecar CSV, so a gap stays visible instead of being filled with the
+wrong recording.
 
-## Why not one of the existing tools
+## Why this approach
 
-Spotify reduced Development Mode in scope in February 2026: new Client IDs need
-Premium, are capped at five authorized users, and — fatally here — can only read
-the contents of playlists the authenticated user *owns*. Since the whole point is
-reading other people's playlists, the self-hosted route is closed.
+Spotify reduced Development Mode in scope in February 2026: new Client IDs
+require Premium, are capped at five authorized users, and — decisively here — can
+only read the contents of playlists the authenticated user *owns*. Porting a
+playlist someone else made is therefore not possible through a self-registered
+Spotify app.
 
-The way around it is to not touch Spotify's API at all. exportify.app runs under
-an **extended quota mode** app, which the February 2026 migration guide exempts
-from every one of those restrictions. You export a CSV in the browser; this tool
-only ever reads that file.
+The way around it is to not call Spotify's API at all. exportify.app runs under an
+**extended quota mode** application, which the February 2026 migration guide
+exempts from all of those restrictions. The CSV is exported in the browser, and
+this tool only ever reads that file.
 
-On the Tidal side there's no developer app to register either. `tidalapi`'s
-device-code token authenticates against the official `openapi.tidal.com/v2`
-catalogue, so ISRC lookup, search, and playlist writes all run through one login.
-
-Full reasoning, decision log, and open questions: [spotify-to-tidal-context.md](spotify-to-tidal-context.md).
+There is no Tidal developer app to register either. A `tidalapi` device-code token
+authenticates against the official `openapi.tidal.com/v2` catalogue, so ISRC
+lookup, search, and playlist writes all run through a single login.
 
 ## Requirements
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
-- A Tidal account (you'll log in once via device code)
+- A Tidal account (one device-code login, cached afterwards)
 
 ## Setup
 
@@ -40,16 +38,16 @@ uv sync
 
 ## Getting a CSV
 
-Use **exportify.app** (watsonbox), *not* exportify.net — they're unrelated
-projects and only exportify.app includes the ISRC column this tool matches on.
+Use **exportify.app** (watsonbox), *not* exportify.net — they are unrelated
+projects, and only exportify.app includes the ISRC column this tool matches on.
 
-1. Follow the playlist in Spotify so it lands in your library.
+1. Follow the playlist in Spotify so it appears in the library.
 2. Open [exportify.app](https://exportify.app/), grant read-only access, and
-   export. "Export All" gives you a zip of every playlist in your account.
+   export. "Export All" produces a zip containing one CSV per playlist.
 3. Unzip into `exportify-exports/`.
 
-Don't self-host Exportify — you'd register your own Client ID and inherit every
-restriction described above.
+Self-hosting Exportify defeats the point: a self-registered Client ID inherits
+every restriction described above.
 
 ## Usage
 
@@ -59,7 +57,7 @@ Port everything not already done:
 uv run exportify_to_tidal.py
 ```
 
-Check the queue first — this needs no Tidal login:
+Preview the queue, which requires no Tidal login:
 
 ```bash
 uv run exportify_to_tidal.py --list
@@ -71,21 +69,21 @@ uv run exportify_to_tidal.py --list
   2. best_of_the_80s.csv   →  'Best of the 80s'
 ```
 
-Playlist names come from filenames, since Exportify's CSV contains no
-playlist-level metadata at all. An all-lowercase name is title-cased with small
-words kept down; anything containing capitals is left alone so acronyms survive.
-`--list` is where you'd catch a name you don't like.
+Playlist names are derived from filenames, because the Exportify CSV contains no
+playlist-level metadata at all. An all-lowercase filename is title-cased with
+small words kept down; a filename containing capitals is left alone so acronyms
+survive. `--list` shows the derived names before anything is created.
 
-Other common runs:
+Other common invocations:
 
 ```bash
 # match and report without writing anything to Tidal
 uv run exportify_to_tidal.py --dry-run
 
-# one specific file, explicit name
-uv run exportify_to_tidal.py some.csv --name "Ben's Mix"
+# a single file, with an explicit name
+uv run exportify_to_tidal.py some.csv --name "Road Trip"
 
-# record exports you already ported by hand, so they aren't done twice
+# record exports already ported by hand, so they are not ported twice
 uv run exportify_to_tidal.py --mark-done
 ```
 
@@ -93,34 +91,38 @@ uv run exportify_to_tidal.py --mark-done
 
 | Flag | Effect |
 |---|---|
-| `--list` | Show the queue and derived names, then stop. No login needed. |
-| `--dry-run` | Match and report, create nothing. Still logs in (ISRC lookup goes through the session). |
+| `--list` | Show the queue and derived names, then stop. No login required. |
+| `--dry-run` | Match and report, create nothing. Still logs in, since ISRC lookup goes through the session. |
 | `--mark-done` | Record queued CSVs as ported without contacting Tidal. |
-| `--reprocess` | Ignore the ledger. Creates a **new** playlist; does not update the old one. |
+| `--reprocess` | Ignore the ledger. Creates a **new** playlist; does not update an existing one. |
 | `--exports-dir` | Directory to scan (default `exportify-exports`). |
-| `--isrc-only` | Exact ISRC matches or nothing; skip the text fallback. |
+| `--isrc-only` | Exact ISRC matches only; skip the text fallback. |
 | `--min-score` | Fallback threshold, 0–1 (default 0.72). |
 | `--duration-tolerance` | Seconds of drift treated as the same recording (default 4). Beyond 3× this is refused. |
-| `--no-cache` | Bypass the match cache. **Use this when tuning the two flags above**, or cached results will mask your changes. |
+| `--no-cache` | Bypass the match cache. Required when tuning the two flags above, otherwise cached results mask the change. |
 | `--delay` | Seconds between lookups (default 1.0). |
-| `--name`, `--description` | Playlist metadata. `--name` only works with a single CSV. |
-| `--debug` | Show every candidate with duration deltas and album overlaps. |
+| `--name`, `--description` | Playlist metadata. `--name` accepts only a single CSV. |
+| `--debug` | Print every candidate with duration deltas and album overlaps. |
 
 ## How matching works
 
 1. **ISRC** via `Session.get_tracks_by_isrc` against Tidal's openapi v2 catalogue.
-   Exact. This resolves the overwhelming majority of tracks in practice.
+   Exact, and in practice resolves the large majority of tracks.
 2. **Scored text search** for anything ISRC misses — title 0.4 / artist 0.3 /
    duration 0.2 / album 0.1, thresholded at `--min-score`. A candidate more than
    3× the tolerance from the expected length is refused as a different recording
-   (cover, remix, extended mix). A search hit whose *own* ISRC matches the source
-   is promoted to an exact match.
+   (cover, remix, extended mix). A search hit whose own ISRC matches the source is
+   promoted to an exact match.
 
-Unmatched tracks are written to `<name>_unmatched.csv` next to the input.
+When one ISRC resolves to several releases of the same recording, the winner is
+chosen by duration delta, then album agreement, then track id — so the same CSV
+always resolves to the same release rather than depending on response ordering.
 
-Re-running is safe. A ledger keyed on filename skips anything already ported; a
-content hash detects an export that *changed* and reports it rather than creating
-a duplicate playlist.
+Unmatched tracks are written to `<name>_unmatched.csv` beside the input.
+
+Re-running is safe. A ledger keyed on filename skips anything already ported, and
+a content hash detects an export that has *changed*, reporting it rather than
+creating a duplicate playlist.
 
 ## State
 
@@ -128,12 +130,12 @@ Three files under `~/.config/exportify_to_tidal/`:
 
 | File | Contents |
 |---|---|
-| `session.json` | Tidal OAuth tokens. **Treat as a credential.** |
+| `session.json` | Tidal OAuth tokens. Should be treated as a credential. |
 | `matches.json` | ISRC/URI → Tidal track id. Shared across playlists, so overlapping ones cost no API calls. |
 | `processed.json` | Which exports have been ported. |
 
-Deleting `matches.json` forces a re-resolve; deleting `processed.json` makes
-everything look unported.
+Deleting `matches.json` forces a re-resolve. Deleting `processed.json` makes every
+export look unported.
 
 ## Tests
 
@@ -141,80 +143,84 @@ everything look unported.
 uv run test_matching.py
 ```
 
-54 assertions, no network, no pytest. Covers the scorer, the ISRC edge cases,
-release-tie determinism, cache reuse rules, filename→name derivation, and
+54 assertions, no network and no pytest. Covers the scorer, the ISRC edge cases,
+release-tie determinism, cache reuse rules, filename-to-name derivation, and
 discovery.
 
-## Known limitations
+## Limitations
 
-- **Playlist cover art can't be transferred.** Tidal's API has
-  `GET /playlists/{id}/relationships/coverArt` but no POST, and the Exportify CSV
-  has no playlist cover anyway. Set covers by hand in the Tidal app.
-- **No playlist metadata beyond the name.** The CSV carries no playlist URI,
-  description, or cover — the filename is all there is.
-- **Not a sync tool.** It creates playlists; it never updates one it made
+- **Playlist cover art cannot be transferred.** Tidal's API exposes
+  `GET /playlists/{id}/relationships/coverArt` with no corresponding POST, and the
+  Exportify CSV carries no playlist cover in the first place. Covers have to be
+  set in the Tidal app.
+- **No playlist metadata beyond the name.** The CSV has no playlist URI,
+  description, or cover; the filename is the only source.
+- **Not a sync tool.** It creates playlists and never updates one it created
   earlier. A changed export is reported, not merged.
 - **`tidalapi` is pinned exactly** (`==0.8.11`). It rides the undocumented
-  `api.tidal.com` and has broken on a Tidal-side change before with no
-  deprecation notice. Upgrade deliberately, then re-run the tests.
+  `api.tidal.com`, and a Tidal-side change has broken its track parser before with
+  no deprecation notice. Upgrades should be deliberate, followed by a test run.
 
 ## Licensing and terms
 
-*Not legal advice — this is a practical summary. Verify anything that matters to
-you.*
+Informational summary, not legal advice.
 
-**This repository has no LICENSE file**, which means default copyright applies:
-all rights reserved, and nobody else may reuse it. If you want it to be usable by
-others, add one — MIT or Apache-2.0 both work here.
+### This project
 
-**Dependencies.** One direct dependency, and it is the only copyleft item:
+Licensed under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
+Copies and derived works must be distributed under the same terms, with the
+corresponding source made available.
 
-| Package | License | Note |
+### Dependencies
+
+| Package | License | |
 |---|---|---|
-| `tidalapi` | **LGPL-3.0-or-later** | Direct dependency |
-| `certifi` | MPL-2.0 | Transitive, weak copyleft |
-| `requests` | Apache-2.0 | Transitive |
-| `urllib3`, `charset-normalizer`, `six`, `mpegdash`, `pyaes`, `ratelimit` | MIT | Transitive |
-| `idna`, `isodate` | BSD | Transitive |
-| `python-dateutil` | BSD / Apache-2.0 dual | Transitive |
-| `typing_extensions` | PSF-2.0 | Transitive |
+| `tidalapi` | **LGPL-3.0-or-later** | direct |
+| `certifi` | MPL-2.0 | transitive, weak copyleft |
+| `requests` | Apache-2.0 | transitive |
+| `urllib3`, `charset-normalizer`, `six`, `mpegdash`, `pyaes`, `ratelimit` | MIT | transitive |
+| `idna`, `isodate` | BSD | transitive |
+| `python-dateutil` | BSD / Apache-2.0 dual | transitive |
+| `typing_extensions` | PSF-2.0 | transitive |
 
-The LGPL on `tidalapi` does **not** force this project to be LGPL. Importing a
-Python module counts as dynamic linking, so your own code stays under whatever
-licence you choose. Two things to keep true:
+`tidalapi` is the only copyleft dependency, and LGPL-3.0 sits cleanly under this
+project's GPL-3.0: the LGPL expressly permits conveying the library under the GPL,
+so combining them raises no obligation beyond the GPL's own. Nothing here vendors
+`tidalapi` in any case — `uv sync` fetches it from PyPI.
 
-- We don't vendor or redistribute `tidalapi` — `uv sync` fetches it from PyPI —
-  which keeps the obligations to essentially "say that you use it." Done here.
-- If you ever ship a **bundled binary** (PyInstaller, Nuitka, a container image
-  with site-packages baked in), you'd be distributing `tidalapi` and would then
-  owe recipients its licence text, source availability, and the ability to
-  substitute their own build of it.
+That also simplifies redistribution. A bundled artefact — PyInstaller, Nuitka, or
+a container image with site-packages baked in — distributes `tidalapi` alongside
+this project, but the GPL requirement to ship corresponding source for the whole
+work already covers it. Modifying `tidalapi` itself would place those
+modifications under the LGPL.
 
-Modifying `tidalapi` itself would put those changes under LGPL. We don't.
+The remaining licences are permissive, or in `certifi`'s case file-level weak
+copyleft, and impose no conditions on this project as a consumer.
 
-**Exportify** is MIT (© 2015 Howard Wilson). We consume its CSV output rather
-than its code, so no obligation attaches — the MIT terms would only matter if you
-vendored or forked it. Worth noting the project is being used exactly as intended
-here; nothing is being scraped or circumvented.
+### Exportify
 
-**Spotify.** This tool never calls Spotify's API. Exportify does, under its own
-registered app and Spotify's Developer Terms. The CSVs it produces contain
-Spotify catalog metadata, and Spotify's terms restrict storing and redistributing
-that content — so **don't commit or publish the CSVs**. `.gitignore` excludes
-`*.csv` for exactly this reason, not just tidiness. Exporting playlists you
-follow, for your own use, is what Exportify is for.
+MIT, © 2015 Howard Wilson. This project consumes Exportify's CSV output rather
+than its code, so no obligation attaches; the MIT terms would apply to vendoring
+or forking it.
 
-**Tidal — the honest caveat.** `tidalapi` authenticates using a `client_id` and
-`client_secret` extracted from TIDAL's own applications and obfuscated in its
-source (double base64 in `session.py`). That is not a credential TIDAL issued to
-you, and using it sits outside TIDAL's developer terms — this is true of every
-`tidalapi` user, not something specific to this project. Practically it's
-read/write against your own account and your own subscription. Two consequences
-worth accepting knowingly:
+### Spotify
 
-- TIDAL could rotate those credentials at any time and this tool would stop
-  working immediately. That's a distinct failure mode from API drift.
-- If you'd rather be on supported footing, the route is the official
-  `developer.tidal.com` API with your own registered app and PKCE. That means
-  reimplementing ISRC lookup, search, *and* playlist writes — see D6 in the
-  context doc for why that trade was declined.
+This project never calls Spotify's API — Exportify does, under its own registered
+application and Spotify's Developer Terms. The exported CSVs contain Spotify
+catalog metadata, which those terms restrict storing and redistributing.
+`.gitignore` excludes `*.csv` for that reason, and exported playlist data should
+not be committed or published.
+
+### Tidal
+
+`tidalapi` authenticates using a `client_id` and `client_secret` extracted from
+TIDAL's own applications and obfuscated in its source. These are not
+developer-issued credentials, and their use falls outside TIDAL's developer terms.
+That is inherent to `tidalapi` rather than specific to this project, and access is
+limited to the account that logs in.
+
+One practical consequence: TIDAL can rotate those credentials at any time, which
+would break the tool immediately. That failure mode is independent of the pinned
+`tidalapi` version. The supported alternative is the official
+`developer.tidal.com` API with a registered application and PKCE, which would
+require reimplementing ISRC lookup, search, and playlist writes.
