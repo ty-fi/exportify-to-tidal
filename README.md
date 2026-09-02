@@ -1,4 +1,4 @@
-# new-playlist-port
+# exportify.app to tidal playlist port utility  app
 
 Port Spotify playlists into Tidal from an [Exportify](https://exportify.app/) CSV,
 matching on ISRC first with a scored text-search fallback.
