@@ -3,6 +3,8 @@ name = "new-playlist-port"
 version = "0.1.0"
 description = "Port a Spotify playlist to Tidal from an Exportify CSV, matching on ISRC first."
 readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     # Pinned exactly, deliberately. tidalapi rides the undocumented api.tidal.com,
