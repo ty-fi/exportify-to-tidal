@@ -1,0 +1,13 @@
+[project]
+name = "new-playlist-port"
+version = "0.1.0"
+description = "Port a Spotify playlist to Tidal from an Exportify CSV, matching on ISRC first."
+requires-python = ">=3.11"
+dependencies = [
+    # Pinned exactly, deliberately. tidalapi rides the undocumented api.tidal.com,
+    # and a Tidal-side change has broken its track parser before with no notice
+    # (null mediaMetadata -> TypeError, late 2025). 0.8.11 is the version a full
+    # ISRC run was verified against on 2026-09-01. Upgrade on purpose, not by
+    # side effect of an unrelated `uv lock`.
+    "tidalapi==0.8.11",
+]
