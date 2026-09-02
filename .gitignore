@@ -1,0 +1,15 @@
+# Claude-managed session files
+_*.md
+
+# uv / Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local tool state
+.claude-bash-history.jsonl
+.claude/settings.local.json
+
+# Playlist exports and unmatched-track output.
+# Force-add with `git add -f` if you want to commit a test fixture.
+*.csv
