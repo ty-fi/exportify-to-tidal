@@ -25,6 +25,7 @@ from exportify_to_tidal import (
     cache_lookup,
     discover,
     duration_delta_s,
+    fuzzy_overlap,
     file_digest,
     isrc_lookup,
     parse_artists,
@@ -152,6 +153,41 @@ def test_strip_noise_on_albums():
         "real case from 95_dodge_caravan.csv scores 1.0, not 0.5",
         overlap == 1.0,
         f"got {overlap}",
+    )
+
+
+def test_noise_markers():
+    print("\nstrip_noise — edition markers go, recording markers stay")
+
+    # Markers that name the same recording in a different package.
+    for marker in [
+        "(LP Version)",  # the only unmatched track in the first 84 ported
+        "(Album Version)",
+        "(Single Version)",
+        "(Radio Edit)",
+        "(Remastered)",
+        "(2011 Remaster)",
+        "(Deluxe Edition)",
+        "(Expanded Edition)",
+        "(Bonus Track Version)",
+        "- Remastered",
+    ]:
+        got = strip_noise(f"Some Song {marker}")
+        check(f"{marker} stripped", got == "Some Song", f"got {got!r}")
+
+    # Markers that name a *different* recording. Stripping these would let the
+    # scorer treat a live take as the studio cut on text alone, which is exactly
+    # what the duration veto exists to prevent -- don't undermine it here.
+    for marker in ["(Live)", "(Acoustic)", "(Demo)", "(Remix)", "(Instrumental)"]:
+        got = strip_noise(f"Some Song {marker}")
+        check(f"{marker} preserved", got == f"Some Song {marker}", f"got {got!r}")
+
+    # The real case, end to end.
+    check(
+        "96 Quite Bitter Beings (LP Version) now matches the plain title",
+        fuzzy_overlap("96 Quite Bitter Beings (LP Version)", "96 Quite Bitter Beings")
+        == 1.0,
+        f"got {fuzzy_overlap('96 Quite Bitter Beings (LP Version)', '96 Quite Bitter Beings')}",
     )
 
 
@@ -524,6 +560,7 @@ def test_discover():
 def main() -> int:
     test_parse_artists()
     test_strip_noise_on_albums()
+    test_noise_markers()
     test_duration_scoring()
     test_missing_duration_is_not_a_veto()
     test_isrc_lookup()
