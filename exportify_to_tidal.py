@@ -130,8 +130,8 @@ NOISE = re.compile(
         | deluxe(\s+edition)?
         | expanded(\s+edition)?
         | bonus\s+track(\s+version)?
-        | single\s+version
-        | album\s+version
+        | (lp|album|single)\s+version
+        | radio\s+edit
         | mono | stereo
     )\s*[\)\]]?\s*$""",
     re.IGNORECASE | re.VERBOSE,
@@ -811,6 +811,42 @@ def port_one(csv_path: Path, session, args) -> dict | None:
     }
 
 
+def run_queue(
+    queue: list[Path], session, args, ledger: dict, on_each=None
+) -> tuple[list[dict], list[tuple[Path, Exception]]]:
+    """Port each queued CSV, recording successes in the ledger.
+
+    Shared by the CLI and the --serve UI so there is exactly one porting path.
+    `on_each` is called with (path, entry_or_None, exc_or_None) after each item,
+    which is how the server reports progress without re-implementing any of this.
+    """
+    ported: list[dict] = []
+    failed: list[tuple[Path, Exception]] = []
+
+    for path in queue:
+        try:
+            entry = port_one(path, session, args)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            # One bad CSV shouldn't cost the rest of the batch. It stays out of
+            # the ledger, so the next run retries it.
+            print(f"\n! {path.name} failed: {exc!r}")
+            failed.append((path, exc))
+            if on_each:
+                on_each(path, None, exc)
+            continue
+
+        if entry:
+            ledger[path.name] = entry
+            save_ledger(ledger)  # after each, so an interrupt keeps what's done
+            ported.append(entry)
+        if on_each:
+            on_each(path, entry, None)
+
+    return ported, failed
+
+
 # ---------------------------------------------------------------- main
 
 
@@ -830,6 +866,15 @@ def main() -> None:
         type=Path,
         default=DEFAULT_EXPORTS_DIR,
         help=f"Directory scanned when no CSV is named (default: {DEFAULT_EXPORTS_DIR})",
+    )
+    parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Open a local drop page instead of running once: drag a CSV or an "
+        "Export All zip onto it, preview the matches, then create the playlists.",
+    )
+    parser.add_argument(
+        "--port", type=int, default=8765, help="Port for --serve (default 8765)"
     )
     parser.add_argument(
         "--list",
@@ -889,6 +934,16 @@ def main() -> None:
     logging.getLogger("tidalapi").setLevel(
         logging.INFO if args.debug else logging.ERROR
     )
+
+    if args.serve:
+        if args.csv:
+            sys.exit("--serve takes no CSV argument; it scans --exports-dir.")
+        # Imported here, not at module scope: serve.py imports back from this
+        # module, so a top-level import would be circular.
+        from serve import serve
+
+        serve(args)
+        return
 
     ledger = load_ledger()
 
@@ -951,24 +1006,7 @@ def main() -> None:
 
     session = load_session()
 
-    ported: list[dict] = []
-    failed: list[tuple[Path, Exception]] = []
-    for path in queue:
-        try:
-            entry = port_one(path, session, args)
-        except KeyboardInterrupt:
-            raise
-        except Exception as exc:
-            # One bad CSV shouldn't cost the rest of the batch. It stays out of
-            # the ledger, so the next run retries it.
-            print(f"\n! {path.name} failed: {exc!r}")
-            failed.append((path, exc))
-            continue
-
-        if entry:
-            ledger[path.name] = entry
-            save_ledger(ledger)  # after each, so an interrupt keeps what's done
-            ported.append(entry)
+    ported, failed = run_queue(queue, session, args, ledger)
 
     if len(queue) > 1 or failed:
         print(f"\n{'=' * 64}")

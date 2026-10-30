@@ -1,5 +1,6 @@
 # Claude-managed session files
 _*.md
+_context-history/
 
 # uv / Python
 .venv/

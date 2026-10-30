@@ -87,10 +87,30 @@ uv run exportify_to_tidal.py some.csv --name "Road Trip"
 uv run exportify_to_tidal.py --mark-done
 ```
 
+### Drop page
+
+For a run without touching the filesystem or remembering the command:
+
+```bash
+uv run exportify_to_tidal.py --serve
+```
+
+That opens a page on `127.0.0.1:8765`. Drag a CSV — or the whole Export All zip,
+which is unpacked for you — onto it, press **Preview matches** to see exactly what
+the CLI would report, then **Create in Tidal**. Nothing is written until the second
+press, and a preview leaves the ledger untouched.
+
+It binds to localhost only and has no authentication, which is deliberate: the Tidal
+session already lives on this machine, so anything able to reach the port can
+already read it. That assumption does not survive exposing the port beyond this
+machine.
+
 ### Flags
 
 | Flag | Effect |
 |---|---|
+| `--serve` | Open a local drop page instead of running once. See above. |
+| `--port` | Port for `--serve` (default 8765). |
 | `--list` | Show the queue and derived names, then stop. No login required. |
 | `--dry-run` | Match and report, create nothing. Still logs in, since ISRC lookup goes through the session. |
 | `--mark-done` | Record queued CSVs as ported without contacting Tidal. |
