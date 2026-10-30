@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spotify playlist to Tidal</title>
+<style>
+  :root {
+    --bg:#fbfaf8; --fg:#1b1b19; --muted:#6b6a66; --line:#e2dfd8; --card:#fff;
+    --accent:#1f6f5c; --accent-fg:#fff; --warn-bg:#fdf6e7; --warn-line:#e8d08c;
+    --warn-fg:#6b4e00; --err:#9b2c2c; --ok:#1f6f5c; --step:#1f6f5c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#16161a; --fg:#ececea; --muted:#9b9a95; --line:#2e2e34; --card:#1e1e23;
+      --accent:#4fae93; --accent-fg:#10100f; --warn-bg:#2a2415; --warn-line:#5c4a1e;
+      --warn-fg:#e3c478; --err:#e2817c; --ok:#4fae93; --step:#4fae93;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:40px 16px 80px;background:var(--bg);color:var(--fg);
+    font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  main{max-width:720px;margin:0 auto}
+  h1{font-size:28px;margin:0 0 8px;letter-spacing:-0.02em}
+  .lede{color:var(--muted);margin:0 0 8px}
+  .privacy{color:var(--muted);font-size:14px;margin:0 0 36px}
+
+  .step{border:1px solid var(--line);border-radius:12px;background:var(--card);
+    padding:22px 24px;margin-bottom:18px}
+  .step-head{display:flex;gap:12px;align-items:baseline;margin-bottom:10px}
+  .num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--step);
+    color:var(--accent-fg);font-size:14px;font-weight:700;display:grid;
+    place-items:center;transform:translateY(3px)}
+  h2{font-size:18px;margin:0;letter-spacing:-0.01em}
+  .step p{margin:0 0 12px}
+  .step p:last-child{margin-bottom:0}
+  ol.sub{margin:0 0 12px;padding-left:22px}
+  ol.sub li{margin-bottom:6px}
+
+  a{color:var(--accent)}
+  .bigLink{display:inline-block;font-weight:600;padding:10px 18px;border-radius:8px;
+    background:var(--accent);color:var(--accent-fg);text-decoration:none;margin:4px 0 14px}
+  button{font:inherit;padding:10px 18px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--line);background:var(--card);color:var(--fg)}
+  button.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent;
+    font-weight:600}
+  button:disabled{opacity:.45;cursor:default}
+
+  .callout{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-fg);
+    border-radius:8px;padding:12px 14px;font-size:14.5px;margin:12px 0}
+  .callout strong{font-weight:700}
+
+  #drop{border:1.5px dashed var(--line);border-radius:10px;padding:34px 20px;
+    text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s,color .15s}
+  #drop.over{border-color:var(--accent);color:var(--fg)}
+  #drop strong{color:var(--fg)}
+
+  .muted{color:var(--muted);font-size:14px}
+  .status{font-size:14.5px;margin-top:10px}
+  .status.ok{color:var(--ok)}
+  .status.err{color:var(--err)}
+
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:14.5px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;
+    letter-spacing:.06em}
+  td.r{text-align:right;white-space:nowrap;color:var(--muted)}
+  .hit{color:var(--ok)}
+  .miss{color:var(--err)}
+  progress{width:100%;height:8px;margin-top:12px}
+  .hidden{display:none !important}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em;
+    background:var(--bg);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+  footer{margin-top:40px;color:var(--muted);font-size:13.5px;line-height:1.6}
+</style>
+</head>
+<body>
+<main>
+  <h1>Move a Spotify playlist to Tidal</h1>
+  <p class="lede">
+    Someone sent you a Spotify playlist and you use Tidal. This rebuilds it in your
+    Tidal account, matching each track by its recording ID so you get the same
+    recording rather than a cover or a live version.
+  </p>
+  <p class="privacy">
+    Everything runs in this browser. Your playlist file is never uploaded anywhere,
+    and your Tidal login goes directly to Tidal — this page never sees your password
+    and never stores your account details on a server.
+  </p>
+
+  <!-- 1 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="step-head"><span class="num">1</span><h2>Get the playlist out of Spotify</h2></div>
+    <p>
+      Spotify doesn't let tools like this one read a playlist that belongs to
+      someone else, so you have to export it yourself first. It takes about a minute
+      and you only need a free Spotify account.
+    </p>
+    <ol class="sub">
+      <li><strong>Follow the playlist in Spotify.</strong> Open it and press Follow
+        (the heart or <em>Follow</em> button) so it appears in your own library.
+        Exportify can only see playlists that are in your library.</li>
+      <li>Open <strong>Exportify</strong> and sign in with Spotify. It only asks for
+        read access to your playlists.</li>
+      <li>Find the playlist in the list and press <strong>Export</strong>. Your browser
+        downloads a <code>.csv</code> file.</li>
+      <li>You can unfollow the playlist in Spotify afterwards if you want.</li>
+    </ol>
+    <a class="bigLink" href="https://exportify.app/" target="_blank" rel="noopener noreferrer">
+      Open Exportify ↗
+    </a>
+    <div class="callout">
+      <strong>Make sure it's exportify<em>.app</em></strong> — there is an unrelated
+      site called exportify<em>.net</em>. They look similar, but only exportify.app
+      includes the recording IDs this page matches on. If you used the wrong one,
+      this page will tell you when you drop the file.
+    </div>
+  </section>
+
+  <!-- 2 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="step-head"><span class="num">2</span><h2>Connect your Tidal account</h2></div>
+    <p>
+      You'll be sent to Tidal to sign in, then returned here. This page only asks for
+      permission to read and create playlists.
+    </p>
+    <p id="authNote" class="muted"></p>
+    <button id="login" class="primary">Sign in with Tidal</button>
+    <button id="logout" class="hidden">Sign out</button>
+    <p id="authStatus" class="status"></p>
+  </section>
+
+  <!-- 3 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="step-head"><span class="num">3</span><h2>Drop the file you downloaded</h2></div>
+    <p>
+      Drag the <code>.csv</code> here, or click to browse. If you used Exportify's
+      <em>Export All</em> button you'll have a <code>.zip</code> — drop that instead
+      and pick which playlist you want.
+    </p>
+    <div id="drop">
+      <strong>Drop the CSV or ZIP here</strong><br>or click to choose a file
+      <input id="file" type="file" accept=".csv,.zip" hidden>
+    </div>
+    <p id="fileStatus" class="status"></p>
+    <div id="pickWrap" class="hidden">
+      <p class="muted" style="margin-top:14px">That ZIP has several playlists. Which one?</p>
+      <select id="pick" style="width:100%;padding:9px;border-radius:8px;
+        border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit"></select>
+    </div>
+  </section>
+
+  <!-- 4 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="step-head"><span class="num">4</span><h2>Check the matches</h2></div>
+    <p>
+      Nothing is added to Tidal yet. This looks up every track first so you can see
+      what it found. Tracks it isn't confident about are left out rather than guessed
+      at — a visible gap beats the wrong recording.
+    </p>
+    <label class="muted" for="plname">Playlist name in Tidal</label>
+    <input id="plname" type="text" placeholder="Playlist name" style="width:100%;
+      padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--card);
+      color:var(--fg);font:inherit;margin:6px 0 14px">
+    <button id="match" class="primary" disabled>Look up the tracks</button>
+    <progress id="prog" class="hidden" max="100" value="0"></progress>
+    <p id="matchStatus" class="status"></p>
+    <div id="results" class="hidden">
+      <table id="table"><thead>
+        <tr><th>Track</th><th>Matched as</th><th class="r">How</th></tr>
+      </thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- 5 ------------------------------------------------------------------ -->
+  <section class="step">
+    <div class="step-head"><span class="num">5</span><h2>Create it in Tidal</h2></div>
+    <p id="createBlurb">Once you're happy with the matches above.</p>
+    <button id="create" class="primary" disabled>Create the playlist</button>
+    <p id="createStatus" class="status"></p>
+  </section>
+
+  <footer>
+    <p>
+      <strong>Why some tracks don't match.</strong> Matching is by ISRC, the recording
+      ID that identifies a specific studio take. When Tidal's catalogue has a different
+      ID for the same recording, this falls back to comparing title, artist, album and
+      length — and refuses anything whose length is too far off, because that usually
+      means a cover, a remix or a live version. Unmatched tracks are listed so you can
+      add them by hand.
+    </p>
+    <p>
+      Open source, GPL-3.0 —
+      <a href="https://github.com/ty-fi/exportify-to-tidal" target="_blank"
+         rel="noopener noreferrer">github.com/ty-fi/exportify-to-tidal</a>.
+      Not affiliated with Spotify, TIDAL or Exportify.
+    </p>
+  </footer>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
